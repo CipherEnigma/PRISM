@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# PRISM: built artifacts and outputs (never commit)
+data/
+index/
+runs/
+results/
+.venv/

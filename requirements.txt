@@ -1,0 +1,8 @@
+numpy
+pandas
+nltk
+matplotlib
+beir
+pytest
+rank_bm25      # tests only: BM25 cross-check
+# pytrec_eval  # optional, tests only: metric cross-check (skip if it fails to build)
