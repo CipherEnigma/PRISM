@@ -188,26 +188,38 @@ class Index:
     def docs_where(self, name: str, op: str, value) -> np.ndarray:
         """Sorted internal ids; op in =, >=, <=, >, <."""
         if name in {"journal", "source"}:
-            mapping = self._field_maps.get(name, {})
-            key = str(value).lower()
-            docs = np.asarray(mapping.get(key, []), dtype=np.int32)
-            return np.sort(docs)
+            if op not in {"=", "=="}:
+                raise ValueError(f"unsupported comparison op {op!r} for {name}")
+            needle = str(value).casefold()
+            arr = self._field_arrays.get(name, np.array([None] * self.n_docs, dtype=object))
+            return np.asarray(
+                [i for i, item in enumerate(arr) if item is not None and needle in str(item).casefold()],
+                dtype=np.int32,
+            )
 
         arr = self._field_arrays.get(name)
         if arr is None:
             return np.array([], dtype=np.int32)
 
+        valid = np.ones(len(arr), dtype=bool)
+        if name == "year":
+            valid = arr != 0
+        elif name == "publish_month":
+            valid = np.asarray([item is not None for item in arr], dtype=bool)
+
         mask = np.zeros(len(arr), dtype=bool)
+        valid_ids = np.flatnonzero(valid)
+        valid_values = arr[valid_ids]
         if op in {"=", "=="}:
-            mask = arr == value
+            mask[valid_ids] = valid_values == value
         elif op == ">=":
-            mask = arr >= value
+            mask[valid_ids] = valid_values >= value
         elif op == "<=":
-            mask = arr <= value
+            mask[valid_ids] = valid_values <= value
         elif op == ">":
-            mask = arr > value
+            mask[valid_ids] = valid_values > value
         elif op == "<":
-            mask = arr < value
+            mask[valid_ids] = valid_values < value
         else:
             raise ValueError(f"unsupported comparison op {op!r}")
         return np.nonzero(mask)[0].astype(np.int32)

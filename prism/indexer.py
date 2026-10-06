@@ -24,6 +24,15 @@ def _text_for_zone(record: Record, zone: str) -> str:
     raise ValueError(f"unknown zone {zone!r}")
 
 
+def _tokens_for_zone(record: Record, zone: str) -> list[str]:
+    if zone != "all":
+        return analyze(_text_for_zone(record, zone))
+    title_tokens = analyze(record.title or "")
+    abstract_tokens = analyze(record.abstract or "")
+    # Keep a positional gap so phrases cannot cross the title/abstract boundary.
+    return title_tokens + [""] * 10 + abstract_tokens
+
+
 def _cohort_rank_from_citations(citations: np.ndarray, publish_months: list[str | None]) -> np.ndarray:
     if len(citations) == 0:
         return np.zeros(0, dtype=np.float64)
@@ -100,12 +109,15 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
 
     for doc_idx, record in enumerate(records):
         for zone in ("title", "abstract", "all"):
-            tokens = analyze(_text_for_zone(record, zone))
-            doc_lens[zone][doc_idx] = len(tokens)
-            counts = Counter(tokens)
+            tokens = _tokens_for_zone(record, zone)
+            real_tokens = [token for token in tokens if token]
+            doc_lens[zone][doc_idx] = len(real_tokens)
+            counts = Counter(real_tokens)
             doc_norms[zone][doc_idx] = math.sqrt(sum((1.0 + math.log10(tf)) ** 2 for tf in counts.values() if tf > 0))
             positions_by_term: dict[str, list[int]] = defaultdict(list)
             for pos, token in enumerate(tokens):
+                if not token:
+                    continue
                 positions_by_term[token].append(pos)
             for term, positions in positions_by_term.items():
                 if term not in postings_by_zone[zone]:
@@ -133,8 +145,8 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
             for doc_idx, tf in zip(docs, tfs):
                 length = int(doc_lens[zone][doc_idx])
                 scores.append((doc_idx, tf / length if length else 0.0))
-            best = sorted(scores, key=lambda pair: pair[1], reverse=True)[:500]
-            champions[zone][term] = np.asarray([doc_idx for doc_idx, _ in best], dtype=np.int32)
+            best = sorted(scores, key=lambda pair: (-pair[1], pair[0]))[:500]
+            champions[zone][term] = np.asarray(sorted(doc_idx for doc_idx, _ in best), dtype=np.int32)
             postings_by_zone[zone][term] = {
                 "docs": docs,
                 "tfs": tfs,
