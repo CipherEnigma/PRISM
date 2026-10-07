@@ -9,6 +9,7 @@ from prism.boolean_ops import phrase_match
 from prism.authority import recency_scores
 from prism.candidates import candidates
 from prism.config import INDEX_DIR, VARIANTS
+from prism.authority import recency_scores
 from prism.gate import adaptive_weights, beta_of_q, specificity
 from prism.index import Index
 from prism.parser import parse
@@ -16,12 +17,45 @@ from prism.schema import Result
 from prism.scoring import bm25_scores, cosine_scores
 
 _INDEX: Index | None = None
+_AUTHORITY_CACHE: dict[int, dict[str, np.ndarray]] = {}
+_RECENCY_CACHE: dict[int, np.ndarray] = {}
+_CITATION_PRESENT_CACHE: dict[int, bool] = {}
 
 
 def set_index(index: Index) -> None:
     """Set the active index (useful for embedding callers and small corpora)."""
     global _INDEX
     _INDEX = index
+    _AUTHORITY_CACHE.clear()
+    _RECENCY_CACHE.clear()
+    _CITATION_PRESENT_CACHE.clear()
+
+
+def _authority_array(index: Index, mode: str) -> np.ndarray:
+    """Cache the index's scalar authority accessor as an aligned NumPy array."""
+    cache = _AUTHORITY_CACHE.setdefault(id(index), {})
+    if mode not in cache:
+        cache[mode] = np.fromiter(
+            (index.authority(doc, mode) for doc in range(index.n_docs)),
+            dtype=np.float64,
+            count=index.n_docs,
+        )
+    return cache[mode]
+
+
+def _recency_array(index: Index) -> np.ndarray:
+    key = id(index)
+    if key not in _RECENCY_CACHE:
+        years = [index.field_value(doc, "year") for doc in range(index.n_docs)]
+        _RECENCY_CACHE[key] = recency_scores(years)
+    return _RECENCY_CACHE[key]
+
+
+def _has_citation_counts(index: Index) -> bool:
+    key = id(index)
+    if key not in _CITATION_PRESENT_CACHE:
+        _CITATION_PRESENT_CACHE[key] = bool(np.any(_authority_array(index, "raw")))
+    return _CITATION_PRESENT_CACHE[key]
 
 
 def _get_index() -> Index:
@@ -42,13 +76,16 @@ def _components(pq, index: Index, cfg, use_champions: bool | None = None):
 
     zone_scores = {zone: cosine_scores(index, zone, pq.terms, cand) for zone in cfg.zone_weights}
     weights = adaptive_weights(index, pq.terms, cfg.zone_weights) if cfg.adaptive_zones else dict(cfg.zone_weights)
-    beta = beta_of_q(specificity(index, pq.terms), cfg.beta) if cfg.gate else cfg.beta
+    beta = beta_of_q(specificity(index, pq.terms), cfg.beta, cfg.s_lo, cfg.s_hi) if cfg.gate else cfg.beta
     mode = cfg.authority_mode
-    authority = np.asarray([index.authority(doc, mode) for doc in range(index.n_docs)], dtype=np.float64) if mode != "none" else np.zeros(index.n_docs)
-    if mode != "none" and not np.any(authority):
-        years = [index.field_value(doc, "year") for doc in range(index.n_docs)]
-        months = [index.field_value(doc, "publish_month") for doc in range(index.n_docs)]
-        authority = recency_scores(years, months)
+    if mode == "none":
+        authority = np.zeros(index.n_docs, dtype=np.float64)
+    else:
+        authority = _authority_array(index, mode)
+        # V5-V7's cohort array has a nonzero minimum rank even when every
+        # citation count is missing. The raw array distinguishes that case.
+        if not _has_citation_counts(index):
+            authority = _recency_array(index)
     total = np.zeros(index.n_docs, dtype=np.float64)
     for zone, values in zone_scores.items():
         total += float(weights[zone]) * values
