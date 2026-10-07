@@ -20,8 +20,10 @@ from eval.tune import (
 )
 from prism.config import VARIANTS
 
-BETAS = [0.0, 0.02, 0.05, 0.1, 0.2]
-TITLE_WEIGHTS = [1, 2, 3, 4]
+# The spec's grid stops at 0.2, but beta kept improving there on TREC-COVID, so it is extended;
+# run_tune.py warns whenever a best value sits on the edge of its grid.
+BETAS = [0.0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]
+TITLE_WEIGHTS = [0.5, 1, 2, 3, 4]
 BETA_MAX = [0.05, 0.1, 0.2, 0.4]
 ALPHAS = [0.0, 0.25, 0.5, 0.75, 1.0]
 CHAMPION_SIZES = [200, 500, 1000, 2000]

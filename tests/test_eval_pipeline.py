@@ -33,10 +33,10 @@ def test_only_tuning_topics_are_used(ctx):
 def test_stages_run_in_order_and_record_their_choices(ctx):
     ctx.results_dir.mkdir()
     rows, best = tune_v1(ctx)
-    assert len(rows) == 4 and best.params["w_title"] in (1, 2, 3, 4)
+    assert len(rows) == 5 and best.params["w_title"] in (0.5, 1, 2, 3, 4)
     for name, mode in (("V2", "raw"), ("V5", "cohort")):
         rows, best = tune_authority(ctx, name, mode)
-        assert len(rows) == 5 and best.params["beta"] in (0.0, 0.02, 0.05, 0.1, 0.2)
+        assert len(rows) == 8 and best.params["beta"] in (0.0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0)
     rows, best = tune_gate(ctx)
     assert best.params["s_hi"] > best.params["s_lo"]
     rows, best = tune_adaptive_zones(ctx)

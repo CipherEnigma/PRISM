@@ -49,6 +49,13 @@ python scripts/build_index.py --out index/            # full build
 python scripts/build_index.py --out index/ --subset 30000   # development: every judged paper plus a seeded sample
 ```
 
+If an index was built from a wrong or partial `metadata.csv` (check: it must be 269,219,095 bytes, and the index must report year known for 100% of papers), the metadata part can be recomputed without re-indexing the text:
+
+```bash
+python scripts/patch_index_metadata.py --src path/to/index.pkl --out index/
+python scripts/patch_index_metadata.py --src index/ --out index/ --citations data/citations.jsonl   # later, to add citation counts
+```
+
 ## Search
 
 ```bash
