@@ -56,6 +56,16 @@ python scripts/patch_index_metadata.py --src path/to/index.pkl --out index/
 python scripts/patch_index_metadata.py --src index/ --out index/ --citations data/citations.jsonl   # later, to add citation counts
 ```
 
+### Citation counts (authority)
+
+Citation counts come from OpenAlex, looked up by DOI and then PubMed ID in batches of 100 and cached to `data/citations.jsonl` (resumable; no call is repeated). A free OpenAlex API key gives a much larger daily budget than no key; the full corpus needs about 1,400 requests.
+
+```bash
+python scripts/fetch_citations.py --dry-run            # what would be requested, no network
+OPENALEX_API_KEY=your_key python scripts/fetch_citations.py
+python scripts/patch_index_metadata.py --src index/ --out index/ --citations data/citations.jsonl
+```
+
 ## Search
 
 ```bash
@@ -73,6 +83,7 @@ Query syntax: bare words are ranked; quoted phrases, `AND`, `OR`, `NOT`, `NEAR/k
 python scripts/run_eval.py --variant V0               # P@10, nDCG@10, Recall@100 on all 50 topics
 python scripts/run_eval.py --all --report             # every variant, then results/report.md and figures
 python scripts/run_tune.py                            # tune on the tuning half only -> results/tuned.json
+python scripts/run_eval.py --tuned --all --report     # evaluate the tuned parameters (results/tuned/), with a default-vs-tuned table
 pytest                                                # unit and end-to-end tests (no network)
 ```
 
