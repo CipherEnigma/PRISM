@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import heapq
-from pathlib import Path
 
 import numpy as np
 
+from prism.boolean_ops import phrase_match
+from prism.authority import recency_scores
 from prism.candidates import candidates
 from prism.config import INDEX_DIR, VARIANTS
 from prism.gate import adaptive_weights, beta_of_q, specificity
@@ -44,6 +45,9 @@ def _components(pq, index: Index, cfg, use_champions: bool | None = None):
     beta = beta_of_q(specificity(index, pq.terms), cfg.beta) if cfg.gate else cfg.beta
     mode = cfg.authority_mode
     authority = np.asarray([index.authority(doc, mode) for doc in range(index.n_docs)], dtype=np.float64) if mode != "none" else np.zeros(index.n_docs)
+    if mode != "none" and not np.any(authority):
+        years = [index.field_value(doc, "year") for doc in range(index.n_docs)]
+        authority = recency_scores(years)
     total = np.zeros(index.n_docs, dtype=np.float64)
     for zone, values in zone_scores.items():
         total += float(weights[zone]) * values
@@ -52,6 +56,10 @@ def _components(pq, index: Index, cfg, use_champions: bool | None = None):
     for values in zone_scores.values():
         text_match |= values > 0
     total += beta * authority * text_match
+    if cfg.phrase_boost > 0 and pq.phrases:
+        for phrase in pq.phrases:
+            matched = phrase_match(index, phrase, "all")
+            total[matched] += cfg.phrase_boost
     return zone_scores, total, authority, beta, weights, cand
 
 

@@ -69,8 +69,19 @@ def explain(result, pq, index, variant: str = "V2") -> str:
         lines.append(f"{zone} cosine={zone_total:.8f}; weight={weights[zone]:.6f}; weighted={weights[zone] * zone_total:.8f}")
     zone_sum = sum(float(weights[z]) * result.zone_scores.get(z, 0.0) for z in weights)
     authority_part = beta * result.authority
+    phrase_part = 0.0
+    if cfg.phrase_boost > 0 and pq.phrases:
+        from prism.boolean_ops import phrase_match
+        phrase_part = sum(
+            cfg.phrase_boost
+            for phrase in pq.phrases
+            if doc in phrase_match(index, phrase, "all")
+        )
     lines.extend([
         f"Authority g(d)={result.authority:.8f}; beta(q)={beta:.8f}; weighted authority={authority_part:.8f}",
-        f"Net score={zone_sum + authority_part:.8f}; search score={result.score:.8f}",
+        *(["Authority source: recency fallback (citation authority array is empty)."]
+          if cfg.authority_mode != "none" and not any(index.authority(i, cfg.authority_mode) for i in range(index.n_docs)) else []),
+        f"Phrase boost={phrase_part:.8f}",
+        f"Net score={zone_sum + authority_part + phrase_part:.8f}; search score={result.score:.8f}",
     ])
     return "\n".join(lines)
