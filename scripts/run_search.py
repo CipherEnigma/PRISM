@@ -15,6 +15,14 @@ from prism.parser import QuerySyntaxError, parse
 from prism.search import search, set_index
 
 
+def _write_console(text: str, stream=None) -> None:
+    """Write text safely when the Windows console cannot encode a paper title."""
+    stream = stream or sys.stdout
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    safe_text = str(text).encode(encoding, errors="replace").decode(encoding, errors="replace")
+    stream.write(safe_text + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Search the PRISM paper index.")
     parser.add_argument("query", nargs="+", help="query text; quote phrases and the whole query as needed")
@@ -34,18 +42,18 @@ def main(argv: list[str] | None = None) -> int:
             print(describe(parsed, index, use_champions=VARIANTS[args.variant].champions))
         results = search(query, k=args.k, variant=args.variant)
     except QuerySyntaxError as exc:
-        print(f"Query error: {exc}", file=sys.stderr)
+        _write_console(f"Query error: {exc}", sys.stderr)
         return 2
     except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
+        _write_console(str(exc), sys.stderr)
         return 2
 
     for rank, result in enumerate(results, 1):
-        print(f"{rank:>3}. {result.score:.8f}  {result.doc_id}  {result.title}")
+        _write_console(f"{rank:>3}. {result.score:.8f}  {result.doc_id}  {result.title}")
         if args.explain:
-            print(explain(result, parsed, index, variant=args.variant))
+            _write_console(explain(result, parsed, index, variant=args.variant))
     if not results:
-        print("No matching papers.")
+        _write_console("No matching papers.")
     return 0
 
 
