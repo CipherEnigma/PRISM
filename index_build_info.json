@@ -1,0 +1,19 @@
+﻿{
+    "artifact":  "index/index.pkl",
+    "source_commit":  "93125ec3431d179fd51560528cfe8200436ca677",
+    "tracked_worktree_clean_at_build":  true,
+    "build_started_at_approx":  "2026-10-07T17:58:42+05:30",
+    "build_completed_at":  "2026-10-07T18:05:41+05:30",
+    "build_wall_seconds_approx":  419,
+    "elapsed_time_note":  "Approximate: from Python process start time to index file last-write time; includes uv startup/dependency setup.",
+    "peak_process_working_set_bytes_observed":  5018226688,
+    "peak_process_working_set_gib_observed":  4.67,
+    "memory_measurement_note":  "Observed maximum from periodic process snapshots during the run, roughly every 20-30 seconds; this is a sampled peak, not a continuous OS peak counter.",
+    "file_size_bytes":  655179244,
+    "file_size_mib":  624.83,
+    "document_count":  171332,
+    "metadata_csv":  "data/metadata.csv",
+    "metadata_csv_present_for_build":  true,
+    "metadata_csv_last_modified":  "2026-10-07T15:12:36+05:30",
+    "full_build_confirmed":  true
+}
