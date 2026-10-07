@@ -28,9 +28,11 @@ class VariantConfig:
     authority_mode: str = "none"        # "none" | "raw" | "cohort"
     beta: float = 0.0                   # fixed authority weight (ignored when gate is on)
     gate: bool = False                  # N2: beta(q) from query specificity
+    s_lo: float = 0.2                   # specificity where gated authority starts decreasing
+    s_hi: float = 0.8                   # specificity where gated authority reaches zero
     adaptive_zones: bool = False        # N3: per-query zone weights
     champions: bool = False             # tiered candidate generation
-    phrase_boost: float = 0.0           # 0 = off
+    phrase_boost: float = 0.0           # explicit quoted phrases only; 0 = off
 
 
 _ZONED = {"title": 2 / 3, "abstract": 1 / 3}   # starting weights 2:1, tuned by D

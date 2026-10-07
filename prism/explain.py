@@ -8,6 +8,7 @@ import numpy as np
 
 from prism.config import VARIANTS
 from prism.gate import adaptive_weights, beta_of_q, specificity
+from prism.search import _has_citation_counts
 
 
 def explain(result, pq, index, variant: str = "V2") -> str:
@@ -39,7 +40,7 @@ def explain(result, pq, index, variant: str = "V2") -> str:
         return "\n".join(lines)
 
     weights = adaptive_weights(index, pq.terms, cfg.zone_weights) if cfg.adaptive_zones else cfg.zone_weights
-    beta = beta_of_q(specificity(index, pq.terms), cfg.beta) if cfg.gate else cfg.beta
+    beta = beta_of_q(specificity(index, pq.terms), cfg.beta, cfg.s_lo, cfg.s_hi) if cfg.gate else cfg.beta
     n_docs = index.n_docs
     for zone in cfg.zone_weights:
         q_weights = {}
@@ -79,9 +80,8 @@ def explain(result, pq, index, variant: str = "V2") -> str:
         )
     lines.extend([
         f"Authority g(d)={result.authority:.8f}; beta(q)={beta:.8f}; weighted authority={authority_part:.8f}",
-        *(["Authority source: recency fallback (citation authority array is empty)."]
-          if cfg.authority_mode != "none" and not any(index.authority(i, cfg.authority_mode) for i in range(index.n_docs)) else []),
-        f"Phrase boost={phrase_part:.8f}",
-        f"Net score={zone_sum + authority_part + phrase_part:.8f}; search score={result.score:.8f}",
+        *(["Authority source: publication-year recency fallback (citation counts are unavailable)."]
+          if cfg.authority_mode != "none" and not _has_citation_counts(index) else []),
+        f"Net score={zone_sum + authority_part:.8f}; search score={result.score:.8f}",
     ])
     return "\n".join(lines)
