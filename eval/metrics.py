@@ -41,6 +41,18 @@ def recall_at_k(ranked: Sequence[str], rels: Mapping[str, int], k: int = 100) ->
     return sum(1 for d in ranked[:k] if rels.get(d, 0) >= RELEVANT_MIN) / total
 
 
+def capped_recall_at_k(ranked: Sequence[str], rels: Mapping[str, int], k: int = 100) -> float:
+    """Recall@k with the denominator capped at k: relevant in the top k / min(k, all relevant).
+
+    BEIR reports this "capped Recall@100" for TREC-COVID (Appendix G of the BEIR paper), because every
+    topic has more than 100 relevant documents and plain Recall@100 can never exceed k / relevant.
+    """
+    total = n_relevant(rels)
+    if total == 0:
+        return 0.0
+    return sum(1 for d in ranked[:k] if rels.get(d, 0) >= RELEVANT_MIN) / min(k, total)
+
+
 def judged_at_k(ranked: Sequence[str], rels: Mapping[str, int], k: int = 10) -> float:
     """Share of the top k that has any qrels judgment (a score of 0 still counts as judged).
 
@@ -79,6 +91,7 @@ def evaluate_extended(run: Run, qrels: Qrels, qids: Sequence[str] | None = None)
         ranked = run.get(q, [])
         out[q] = {
             **topic_metrics(ranked, qrels[q]),
+            "CappedRecall@100": capped_recall_at_k(ranked, qrels[q], 100),
             "Judged@10": judged_at_k(ranked, qrels[q], 10),
             "Judged@100": judged_at_k(ranked, qrels[q], 100),
             "cNDCG@10": condensed_ndcg_at_k(ranked, qrels[q], 10),

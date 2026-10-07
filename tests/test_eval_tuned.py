@@ -43,7 +43,7 @@ def test_champion_size_is_the_smallest_within_tolerance():
 def test_report_compares_default_and_tuned(tmp_path):
     qids = [str(i) for i in range(1, 9)]
     split = {"seed": 42, "tune": qids[:4], "report": qids[4:]}
-    row = lambda v: {"P@10": v, "nDCG@10": v, "Recall@100": v, "Judged@10": 0.9, "Judged@100": 0.9, "cNDCG@10": v}  # noqa: E731
+    row = lambda v: {"P@10": v, "nDCG@10": v, "Recall@100": v, "CappedRecall@100": v, "Judged@10": 0.9, "Judged@100": 0.9, "cNDCG@10": v}  # noqa: E731
     for d, v in ((tmp_path, 0.40), (tmp_path / "tuned", 0.50)):
         d.mkdir(exist_ok=True)
         for name in ("V0", "V1"):

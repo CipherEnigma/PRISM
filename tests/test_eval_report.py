@@ -12,7 +12,7 @@ SPLIT = {"seed": 42, "tune": QIDS[:4], "report": QIDS[4:]}
 
 
 def _row(ndcg):
-    return {"P@10": ndcg, "nDCG@10": ndcg, "Recall@100": ndcg / 2, "Judged@10": 0.9, "Judged@100": 0.8, "cNDCG@10": ndcg}
+    return {"P@10": ndcg, "nDCG@10": ndcg, "Recall@100": ndcg / 2, "CappedRecall@100": ndcg, "Judged@10": 0.9, "Judged@100": 0.8, "cNDCG@10": ndcg}
 
 
 def _data():

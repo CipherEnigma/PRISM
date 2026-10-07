@@ -13,7 +13,7 @@ import numpy as np                       # noqa: E402
 from eval.stats import spearman_ci       # noqa: E402
 
 PerTopic = Mapping[str, Mapping[str, Mapping[str, float]]]    # variant -> qid -> metric -> value
-METRICS = ["P@10", "nDCG@10", "Recall@100"]
+METRICS = ["P@10", "nDCG@10", "Recall@100", "CappedRecall@100"]
 ORDER = ["V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "R"]
 BASELINES = {"V0", "R"}
 
@@ -50,7 +50,7 @@ def _ordered(variants) -> list[str]:
 
 
 def mean_over(per_topic: Mapping[str, Mapping[str, float]], qids: Sequence[str], metric: str) -> float:
-    vals = [per_topic[q][metric] for q in qids if q in per_topic]
+    vals = [per_topic[q][metric] for q in qids if q in per_topic and metric in per_topic[q]]
     return float(np.mean(vals)) if vals else float("nan")
 
 
