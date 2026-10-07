@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRISM Search</title>
+<style>
+  :root {
+    --bg: #0c0e0d;
+    --text: #ecebe5;
+    --muted: #9c9b93;
+    --faint: #6d6c66;
+    --accent: #e9a645;
+    --accent-ink: #1b1306;
+    --error: #e07a5f;
+    --glass: rgba(255, 255, 255, 0.055);
+    --glass-strong: rgba(255, 255, 255, 0.08);
+    --line: rgba(255, 255, 255, 0.10);
+    --radius: 16px;
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; overflow-x: hidden; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased;
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+  }
+  /* Soft colour fields behind the glass. Fixed, so the blur stays visible while scrolling. */
+  .backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; }
+  .backdrop span { position: absolute; border-radius: 50%; filter: blur(90px); }
+  .backdrop .a { width: 520px; height: 520px; left: -140px; top: -120px; background: rgba(42, 150, 104, 0.40); }
+  .backdrop .b { width: 460px; height: 460px; right: -120px; top: 18%; background: rgba(233, 166, 69, 0.30); }
+  .backdrop .c { width: 420px; height: 420px; left: 30%; bottom: -200px; background: rgba(196, 92, 62, 0.25); }
+
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  main { max-width: 860px; margin: 0 auto; padding: 56px 16px 80px; }
+
+  header { margin-bottom: 28px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { flex: none; }
+  .brand h1 { margin: 0; font-size: 28px; font-weight: 650; letter-spacing: 0.14em; }
+  .tagline { margin: 6px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+
+  form.search { display: flex; gap: 10px; padding: 10px; }
+  .search input, .search select, .search button {
+    font: inherit; color: var(--text); border-radius: 11px; border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.22); height: 46px;
+  }
+  .search input { flex: 1; min-width: 0; padding: 0 16px; font-family: var(--mono); font-size: 14.5px; outline: none; }
+  .search input::placeholder { color: var(--faint); }
+  .search select { padding: 0 12px; outline: none; cursor: pointer; }
+  .search select option { background: #1a1c1b; }
+  .search input:focus, .search select:focus { border-color: rgba(233, 166, 69, 0.6); }
+  .search button {
+    padding: 0 22px; background: var(--accent); color: var(--accent-ink); border-color: transparent;
+    font-weight: 600; cursor: pointer; transition: filter 0.15s;
+  }
+  .search button:hover { filter: brightness(1.08); }
+  .search button:disabled { filter: saturate(0.4) brightness(0.8); cursor: progress; }
+
+  .hint { margin: 14px 4px 0; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .hint code { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+  .examples button {
+    font: 12.5px var(--mono); color: var(--text); cursor: pointer; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--glass);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: border-color 0.15s;
+  }
+  .examples button:hover { border-color: rgba(233, 166, 69, 0.55); }
+
+  .status { margin: 28px 4px 12px; color: var(--muted); font-size: 13px; min-height: 20px; }
+  .status b { color: var(--text); font-weight: 600; }
+
+  .error { padding: 14px 18px; border-color: rgba(224, 122, 95, 0.45); color: #f3c2b4; }
+
+  details > summary { cursor: pointer; list-style: none; user-select: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before {
+    content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 10px 2px 0;
+    border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg); transition: transform 0.15s;
+  }
+  details[open] > summary::before { transform: rotate(45deg); }
+  pre {
+    margin: 12px 0 0; padding: 14px 16px; overflow-x: auto; border-radius: 10px;
+    background: rgba(0, 0, 0, 0.30); border: 1px solid rgba(255, 255, 255, 0.06);
+    font: 12.5px/1.6 var(--mono); color: #dcdad2; white-space: pre;
+  }
+
+  .plan { padding: 14px 18px; margin-bottom: 14px; }
+  .plan > summary { font-weight: 600; font-size: 14px; }
+  .plan > summary span { color: var(--muted); font-weight: 400; margin-left: 6px; }
+
+  .results { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+  .result { padding: 16px 18px; }
+  .result .top { display: flex; gap: 14px; align-items: baseline; }
+  .rank { flex: none; width: 26px; color: var(--accent); font: 600 13px var(--mono); }
+  .result h2 { flex: 1; margin: 0; font-size: 16px; font-weight: 600; line-height: 1.4; }
+  .score { flex: none; font: 600 13px var(--mono); color: var(--text); }
+  .meta, .signals { margin: 6px 0 0 40px; color: var(--muted); font-size: 13px; }
+  .signals { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .signals b { color: var(--muted); font-weight: 500; }
+  .result details { margin: 10px 0 0 40px; font-size: 13px; color: var(--muted); }
+  .result details > summary:hover { color: var(--text); }
+  .empty { padding: 22px 18px; color: var(--muted); text-align: center; }
+
+  /* Last, so it beats the font shorthands above: show >=, -> etc. exactly as typed. */
+  code, pre, input, .examples button, .rank, .score, .signals {
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+  }
+
+  @media (max-width: 620px) {
+    main { padding-top: 32px; }
+    form.search { flex-wrap: wrap; }
+    .search input { flex-basis: 100%; }
+    .search select { flex: 1; min-width: 0; }
+    .examples button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta, .signals, .result details { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+
+<main>
+  <header>
+    <div class="brand">
+      <svg width="40" height="28" viewBox="0 0 40 28" aria-hidden="true">
+        <path d="M1 17 13 14" stroke="#ecebe5" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M20 3 31 24H9Z" fill="rgba(255,255,255,.08)" stroke="#ecebe5" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M26 13 39 9" stroke="#e9a645" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M27 15 39 15" stroke="#3fae7f" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M27 17 39 21" stroke="#d0684a" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      <h1>PRISM</h1>
+    </div>
+    <p class="tagline">Structure-aware search over <span id="ndocs">COVID-19</span> research papers</p>
+  </header>
+
+  <form class="search glass" id="form" autocomplete="off">
+    <input id="q" name="q" type="text" placeholder='Search papers, e.g. "contact tracing" AND mobile' aria-label="Query" autofocus>
+    <select id="variant" aria-label="Ranking variant" title="Ranking variant"></select>
+    <button id="go" type="submit">Search</button>
+  </form>
+
+  <p class="hint">
+    Bare words are ranked. <code>"phrases"</code> <code>AND</code> <code>OR</code> <code>NOT</code>
+    <code>NEAR/5</code> <code>title:</code> <code>year&gt;=2020</code> restrict the results.
+  </p>
+  <div class="examples" id="examples"></div>
+
+  <div class="status" id="status" aria-live="polite"></div>
+  <div id="out"></div>
+</main>
+
+<script>
+const EXAMPLES = [
+  "coronavirus origin",
+  '"contact tracing" AND mobile',
+  "remdesivir NEAR/5 trial",
+  "title:remdesivir year>=2020",
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = (x, d) => Number(x).toFixed(d);
+
+async function init() {
+  for (const ex of EXAMPLES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = ex;
+    b.addEventListener("click", () => { $("q").value = ex; run(); });
+    $("examples").append(b);
+  }
+  const info = await (await fetch("/api/info")).json();
+  $("ndocs").textContent = info.n_docs.toLocaleString() + " COVID-19";
+  for (const v of info.variants) {
+    $("variant").append(new Option(`${v.id} · ${v.label}`, v.id));
+  }
+  const params = new URLSearchParams(location.search);
+  $("variant").value = params.get("variant") || info.default_variant;
+  if (params.get("q")) { $("q").value = params.get("q"); run(); }
+}
+
+async function run() {
+  const q = $("q").value.trim();
+  if (!q) { $("q").focus(); return; }
+  const variant = $("variant").value;
+  history.replaceState(null, "", `?${new URLSearchParams({ q, variant })}`);
+  $("go").disabled = true;
+  $("go").textContent = "Searching…";
+  try {
+    const res = await fetch(`/api/search?${new URLSearchParams({ q, variant, k: 10 })}`);
+    const data = await res.json();
+    if (!res.ok) return showError(data.error);
+    render(data);
+  } catch (err) {
+    showError("Could not reach the PRISM server. Is scripts/serve.py running?");
+  } finally {
+    $("go").disabled = false;
+    $("go").textContent = "Search";
+  }
+}
+
+function showError(message) {
+  $("status").textContent = "";
+  $("out").innerHTML = `<div class="glass error">${esc(message)}</div>`;
+}
+
+function render(data) {
+  const n = data.results.length;
+  $("status").innerHTML =
+    `<b>${n}</b> result${n === 1 ? "" : "s"} · ${data.ms} ms · ${esc(data.variant)}` +
+    (data.terms.length ? ` · ranking terms: ${esc(data.terms.join(", "))}` : "");
+
+  const plan = `
+    <details class="glass plan"${data.restricted ? " open" : ""}>
+      <summary>Query plan<span>${data.restricted ? "how the candidate set was built" : "no restrictions"}</span></summary>
+      <pre>${esc(data.plan)}</pre>
+    </details>`;
+
+  const items = data.results.map((r) => {
+    const meta = [r.doc_id, r.year, r.journal].filter(Boolean).map(esc).join(" · ");
+    const zones = Object.entries(r.zone_scores)
+      .map(([z, v]) => `<b>${esc(z)}</b> ${num(v, 3)}`).join(" · ");
+    const auth = r.beta > 0 ? ` · <b>g(d)</b> ${num(r.authority, 2)} · <b>β</b> ${num(r.beta, 3)}` : "";
+    return `
+      <li class="glass result">
+        <div class="top">
+          <span class="rank">${String(r.rank).padStart(2, "0")}</span>
+          <h2>${esc(r.title) || "<em>Untitled</em>"}</h2>
+          <span class="score">${num(r.score, 4)}</span>
+        </div>
+        <div class="meta">${meta}</div>
+        ${zones || auth ? `<div class="signals">${zones}${auth}</div>` : ""}
+        <details><summary>Score breakdown</summary><pre>${esc(r.explain)}</pre></details>
+      </li>`;
+  }).join("");
+
+  $("out").innerHTML = plan +
+    (n ? `<ol class="results">${items}</ol>` : `<div class="glass empty">No matching papers.</div>`);
+}
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); run(); });
+init();
+</script>
+</body>
+</html>
