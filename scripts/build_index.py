@@ -10,16 +10,22 @@ from prism.loader import iter_records
 
 
 def _find_qrel_ids(data_dir: Path) -> set[str]:
-    qrel_paths = []
-    for name in ("qrels", "qrels.tsv", "qrels.txt"):
-        qrel_paths.extend(data_dir.rglob(name))
+    """Judged doc ids from every qrels file under data_dir.
+
+    Accepts BEIR's qrels/<split>.tsv ("query-id corpus-id score", with a header row) and
+    TREC-style files named qrels* ("qid iteration docid rel").
+    """
+    qrel_paths = {p for p in data_dir.rglob("*") if p.is_file()
+                  and (p.parent.name == "qrels" or p.name.lower().startswith("qrels"))}
     seen: set[str] = set()
-    for qrel_path in qrel_paths:
+    for qrel_path in sorted(qrel_paths):
         with qrel_path.open("r", encoding="utf-8") as handle:
             for line in handle:
                 pieces = line.strip().split()
-                if len(pieces) >= 3:
-                    seen.add(pieces[2])
+                if len(pieces) == 3 and pieces[2].lstrip("-").isdigit():
+                    seen.add(pieces[1])          # BEIR: query-id corpus-id score
+                elif len(pieces) == 4 and pieces[3].lstrip("-").isdigit():
+                    seen.add(pieces[2])          # TREC: qid iteration docid rel
     return seen
 
 

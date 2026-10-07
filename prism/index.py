@@ -149,6 +149,24 @@ class Index:
         end = int(offsets[pos_idx + 1])
         return flat[start:end]
 
+    # Added at B's request (adding is allowed): phrase and NEAR use it to work on every
+    # document at once instead of calling positions() doc by doc.
+    def positions_flat(self, term: str, zone: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """(doc ids ascending, offsets with a leading 0, flat positions) for every doc with term.
+
+        The positions of docs[i] are flat[offsets[i]:offsets[i + 1]].
+        """
+        term_data = self._postings.get(zone, {}).get(term)
+        if term_data is None or not len(term_data.get("docs", [])):
+            empty = np.array([], dtype=np.int32)
+            return empty, np.array([0], dtype=np.int32), empty
+        docs = np.asarray(term_data["docs"], dtype=np.int32)
+        offsets = np.asarray(term_data.get("offsets", [0]), dtype=np.int32)
+        if len(offsets) == len(docs):
+            offsets = np.concatenate(([0], offsets)).astype(np.int32)
+        flat = np.asarray(term_data.get("positions", []), dtype=np.int32)
+        return docs, offsets, flat
+
     def df(self, term: str, zone: str) -> int:
         return int(len(self.postings(term, zone)[0]))
 
