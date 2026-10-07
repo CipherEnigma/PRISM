@@ -117,3 +117,37 @@ def test_champion_fn_keeps_the_best_documents_by_tf_over_length(index):
     assert champ.tolist() == sorted(best)
     assert make_champion_fn(index, 100)("covid", "all") is None      # short lists use full postings
     assert make_champion_fn(index, 2)("zzzunseen", "all") is None
+
+
+@pytest.mark.parametrize("variant", ["V0", "V1", "V2", "V3", "V4", "V5", "V6", "V7"])
+def test_explainer_net_score_equals_the_search_score(index, variant):
+    """The explainer must reproduce every result's score (spec: explainer consistency)."""
+    import re
+    from prism.explain import explain
+    from prism.parser import parse
+    for query in ("covid trial", '"contact tracing"', "title:remdesivir year>=2020", "vaccine efficacy"):
+        pq = parse(query)
+        for hit in search_module.search(query, k=5, variant=variant):
+            text = explain(hit, pq, index, variant=variant)
+            net, found = re.search(r"Net score=(-?[\d.]+); search score=(-?[\d.]+)", text).groups()
+            assert float(net) == pytest.approx(float(found), abs=1e-7), (variant, query, hit.doc_id)
+
+
+def test_v7_alpha_reaches_the_zone_weights_and_the_explainer(index, monkeypatch):
+    """alpha = 0 keeps the global zone weights; a larger alpha moves them; search and explain agree."""
+    import re
+    from dataclasses import replace
+    from prism.explain import explain
+    from prism.parser import parse
+    pq = parse("remdesivir trial")
+    weights = {}
+    for alpha in (0.0, 1.0):
+        monkeypatch.setitem(VARIANTS, f"A{int(alpha)}", replace(VARIANTS["V7"], alpha=alpha))
+        weights[alpha] = search_module._components(pq, index, VARIANTS[f"A{int(alpha)}"])[4]
+        assert sum(weights[alpha].values()) == pytest.approx(1.0)
+        for hit in search_module.search("remdesivir trial", k=3, variant=f"A{int(alpha)}"):
+            text = explain(hit, pq, index, variant=f"A{int(alpha)}")
+            net, found = re.search(r"Net score=(-?[\d.]+); search score=(-?[\d.]+)", text).groups()
+            assert float(net) == pytest.approx(float(found), abs=1e-7)
+    assert weights[0.0] == pytest.approx(VARIANTS["V7"].zone_weights)
+    assert weights[1.0] != pytest.approx(weights[0.0])
