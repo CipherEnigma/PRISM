@@ -47,7 +47,8 @@ def _components(pq, index: Index, cfg, use_champions: bool | None = None):
     authority = np.asarray([index.authority(doc, mode) for doc in range(index.n_docs)], dtype=np.float64) if mode != "none" else np.zeros(index.n_docs)
     if mode != "none" and not np.any(authority):
         years = [index.field_value(doc, "year") for doc in range(index.n_docs)]
-        authority = recency_scores(years)
+        months = [index.field_value(doc, "publish_month") for doc in range(index.n_docs)]
+        authority = recency_scores(years, months)
     total = np.zeros(index.n_docs, dtype=np.float64)
     for zone, values in zone_scores.items():
         total += float(weights[zone]) * values
