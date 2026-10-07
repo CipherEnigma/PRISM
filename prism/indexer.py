@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import math
+import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Iterable
@@ -12,6 +14,19 @@ import pandas as pd
 from prism.analyzer import analyze
 from prism.index import Index
 from prism.schema import Record
+
+
+def _show_progress(label: str, current: int, total: int, started: float) -> None:
+    """Draw a small dependency-free progress bar on stderr."""
+    width = 28
+    fraction = min(1.0, current / max(total, 1))
+    filled = int(width * fraction)
+    bar = "#" * filled + "-" * (width - filled)
+    elapsed = time.perf_counter() - started
+    sys.stderr.write(f"\r{label} [{bar}] {fraction:6.1%} ({current:,}/{total:,}) {elapsed:,.0f}s")
+    if current >= total:
+        sys.stderr.write("\n")
+    sys.stderr.flush()
 
 
 def _text_for_zone(record: Record, zone: str) -> str:
@@ -107,6 +122,7 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
     doc_lens: dict[str, np.ndarray] = {"title": np.zeros(n_docs, dtype=np.int32), "abstract": np.zeros(n_docs, dtype=np.int32), "all": np.zeros(n_docs, dtype=np.int32)}
     doc_norms: dict[str, np.ndarray] = {"title": np.zeros(n_docs, dtype=np.float64), "abstract": np.zeros(n_docs, dtype=np.float64), "all": np.zeros(n_docs, dtype=np.float64)}
 
+    indexing_started = time.perf_counter()
     for doc_idx, record in enumerate(records):
         for zone in ("title", "abstract", "all"):
             tokens = _tokens_for_zone(record, zone)
@@ -126,8 +142,14 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
                 entry["docs"].append(doc_idx)
                 entry["tfs"].append(len(positions))
                 entry["positions"].append(np.asarray(positions, dtype=np.int32))
+        completed = doc_idx + 1
+        if completed % 500 == 0 or completed == n_docs:
+            _show_progress("Indexing papers", completed, n_docs, indexing_started)
 
     champions: dict[str, dict[str, np.ndarray]] = {"title": {}, "abstract": {}, "all": {}}
+    term_total = sum(len(zone_postings) for zone_postings in postings_by_zone.values())
+    term_completed = 0
+    finalizing_started = time.perf_counter()
     for zone in ("title", "abstract", "all"):
         for term, entry in postings_by_zone[zone].items():
             docs = np.asarray(entry["docs"], dtype=np.int32)
@@ -139,6 +161,9 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
                     "offsets": np.asarray([0], dtype=np.int32) if len(docs) == 0 else np.cumsum(np.asarray([len(p) for p in entry["positions"]], dtype=np.int32)),
                     "positions": np.concatenate(entry["positions"]) if entry["positions"] else np.array([], dtype=np.int32),
                 }
+                term_completed += 1
+                if term_completed % 250 == 0 or term_completed == term_total:
+                    _show_progress("Preparing postings", term_completed, term_total, finalizing_started)
                 continue
 
             scores = []
@@ -153,6 +178,9 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
                 "offsets": np.asarray([0], dtype=np.int32) if len(docs) == 0 else np.cumsum(np.asarray([len(p) for p in entry["positions"]], dtype=np.int32)),
                 "positions": np.concatenate(entry["positions"]) if entry["positions"] else np.array([], dtype=np.int32),
             }
+            term_completed += 1
+            if term_completed % 250 == 0 or term_completed == term_total:
+                _show_progress("Preparing postings", term_completed, term_total, finalizing_started)
 
     # Ensure all terms have a clean offset array with a trailing end.
     for zone in ("title", "abstract", "all"):
@@ -195,4 +223,5 @@ def build_index(records: Iterable[Record], out_dir: str | Path) -> None:
     }
 
     index = Index(data)
+    sys.stderr.write(f"Writing index to {out_dir}...\n")
     index.save(out_dir)

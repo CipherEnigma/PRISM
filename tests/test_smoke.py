@@ -4,6 +4,7 @@ import pytest
 
 import prism.parser
 from prism.config import VARIANTS
+from prism.authority import recency_scores
 from prism.explain import explain
 from prism.index import Index
 from prism.schema import Result
@@ -95,3 +96,9 @@ def test_phrase_variant_boost_is_explained(tiny_index):
 def test_unknown_variant_raises():
     with pytest.raises(KeyError):
         search("x", variant="nope")
+
+
+def test_recency_fallback_uses_month_when_available():
+    scores = recency_scores([2020, 2020, 2021], ["2020-01", "2020-11", "2021-01"])
+    assert scores[0] < scores[1] < scores[2]
+    assert recency_scores([2020, None], [None, None]).tolist() == [1.0, 0.0]
