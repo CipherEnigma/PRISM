@@ -88,3 +88,24 @@ def test_relevance_stats_ceiling():
     assert stats["score_values"] == [0, 1, 2]
     assert stats["recall_ceiling_per_topic"]["q1"] == pytest.approx(0.25)
     assert stats["recall_ceiling_per_topic"]["q2"] == 1.0
+
+
+def test_capped_recall_caps_the_denominator_at_k():
+    from eval.metrics import capped_recall_at_k
+    # 150 relevant documents; the top 100 are all relevant: plain Recall@100 = 100/150, capped = 100/100
+    many = {f"d{i}": 1 for i in range(150)}
+    ranked = [f"d{i}" for i in range(100)]
+    assert recall_at_k(ranked, many, 100) == pytest.approx(100 / 150)
+    assert capped_recall_at_k(ranked, many, 100) == pytest.approx(1.0)
+    # 4 relevant (fewer than k): the two forms agree; 3 of 4 found
+    few = {"a": 2, "b": 1, "c": 1, "d": 1, "x": 0}
+    assert capped_recall_at_k(["a", "b", "c", "z"], few, 100) == pytest.approx(3 / 4)
+    assert capped_recall_at_k(["a", "b", "c", "z"], few, 100) == recall_at_k(["a", "b", "c", "z"], few, 100)
+    assert capped_recall_at_k(["a"], {"x": 0}, 100) == 0.0                       # nothing relevant
+
+
+def test_evaluate_extended_includes_capped_recall():
+    from eval.metrics import evaluate_extended
+    many = {f"d{i}": 1 for i in range(150)}
+    out = evaluate_extended({"q": [f"d{i}" for i in range(100)]}, {"q": many})
+    assert out["q"]["CappedRecall@100"] == pytest.approx(1.0) and out["q"]["Recall@100"] == pytest.approx(100 / 150)

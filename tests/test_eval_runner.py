@@ -74,7 +74,7 @@ def test_run_and_save_writes_everything(tmp_path):
 
 
 def test_per_topic_csv_round_trip(tmp_path):
-    rows = {"1": {c: 0.25 for c in ("P@10", "nDCG@10", "Recall@100", "Judged@10", "Judged@100", "cNDCG@10")}}
+    rows = {"1": {c: 0.25 for c in ("P@10", "nDCG@10", "Recall@100", "CappedRecall@100", "Judged@10", "Judged@100", "cNDCG@10")}}
     write_per_topic_csv(tmp_path / "t.csv", rows, {"1": 0.012})
     back = read_per_topic_csv(tmp_path / "t.csv")
     assert back["1"]["nDCG@10"] == 0.25 and back["1"]["latency_s"] == pytest.approx(0.012)

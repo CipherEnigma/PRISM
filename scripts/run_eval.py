@@ -29,7 +29,7 @@ def _print_summary(variant: str, summary: dict, per_topic: dict, split: dict, al
     for which in ("tune", "report", "all"):
         qids = select_qids(which, split, all_qids)
         m = mean_metrics({q: per_topic[q] for q in qids if q in per_topic})
-        print(f"  {which:<7} P@10 {m['P@10']:.4f}   nDCG@10 {m['nDCG@10']:.4f}   Recall@100 {m['Recall@100']:.4f}"
+        print(f"  {which:<7} P@10 {m['P@10']:.4f}   nDCG@10 {m['nDCG@10']:.4f}   Recall@100 {m['Recall@100']:.4f}   Capped {m.get('CappedRecall@100', float('nan')):.4f}"
               f"   Judged@10 {m['Judged@10']:.3f}")
     lat = summary["latency"]
     print(f"  latency  median {lat['median_ms']:.1f} ms   p95 {lat['p95_ms']:.1f} ms")

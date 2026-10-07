@@ -41,7 +41,8 @@ def build_report(results_dir: str | Path, split: dict, all_qids: list[str], base
     sets = {"report half": select_qids("report", split, all_qids), "all 50": select_qids("all", split, all_qids)}
     md = ["# PRISM results", "",
           "Relevant means qrels score >= 1; unjudged documents count as non-relevant, which can understate "
-          "every system. Recall@100 is capped well below 1 because every topic has more than 100 relevant documents.",
+          "every system. Every topic has more than 100 relevant documents, so plain Recall@100 can never reach 1 (mean ceiling about 0.27); "
+          "CappedRecall@100 divides by min(100, relevant) instead, the form BEIR reports for TREC-COVID.",
           "", "## Main table", "", plots.results_table(data, sets), ""]
 
     judged = {v: {s: plots.mean_over(data[v], q, "Judged@10") for s, q in sets.items()} for v in data}

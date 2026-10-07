@@ -14,7 +14,7 @@ from eval.metrics import evaluate_extended, mean_metrics
 from prism.config import RESULTS_DIR, RUNS_DIR
 
 SearchFn = Callable[..., list]     # search(query, k, variant) -> objects with .doc_id and .score
-PER_TOPIC_COLUMNS = ["qid", "P@10", "nDCG@10", "Recall@100", "Judged@10", "Judged@100", "cNDCG@10", "latency_s"]
+PER_TOPIC_COLUMNS = ["qid", "P@10", "nDCG@10", "Recall@100", "CappedRecall@100", "Judged@10", "Judged@100", "cNDCG@10", "latency_s"]
 
 
 @dataclass
@@ -96,7 +96,7 @@ def write_per_topic_csv(path: str | Path, per_topic: Mapping[str, Mapping[str, f
 
 def read_per_topic_csv(path: str | Path) -> dict[str, dict[str, float]]:
     with Path(path).open(encoding="utf-8", newline="") as handle:
-        return {row["qid"]: {c: float(row[c]) for c in PER_TOPIC_COLUMNS[1:]} for row in csv.DictReader(handle)}
+        return {row["qid"]: {c: float(row[c]) for c in PER_TOPIC_COLUMNS[1:] if c in row} for row in csv.DictReader(handle)}
 
 
 def run_and_save(variant: str, queries: Mapping[str, str], qrels: Mapping[str, Mapping[str, int]],
