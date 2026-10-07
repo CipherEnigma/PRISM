@@ -136,6 +136,22 @@ def plot_specificity_scatter(specificity: Mapping[str, float], gains: Mapping[st
     return _save(fig, path)
 
 
+def plot_specificity_hist(specificity: Mapping[str, float], path: str | Path, s_lo: float | None = None,
+                          s_hi: float | None = None) -> Path:
+    """Histogram of the query specificity of every topic. The gate can only work if this spreads out;
+    s_lo and s_hi (where beta starts to fall and reaches zero) are drawn when given."""
+    vals = np.array(list(specificity.values()))
+    fig, ax = plt.subplots(figsize=(6, 3.6))
+    ax.hist(vals, bins=min(15, max(5, len(vals) // 3)), color=BLUE, edgecolor="white", linewidth=1)
+    for x, label in ((s_lo, "s_lo"), (s_hi, "s_hi")):
+        if x is not None:
+            ax.axvline(x, color=ORANGE, linewidth=1.5)
+            ax.text(x, ax.get_ylim()[1] * 0.95, f" {label}", color=INK2, fontsize=8, va="top")
+    _style(ax, xlabel="query specificity (mean normalized idf)", ylabel="topics",
+           title=f"Specificity of {len(vals)} topics: min {vals.min():.2f}, median {np.median(vals):.2f}, max {vals.max():.2f}")
+    return _save(fig, path)
+
+
 def plot_sensitivity(rows: Sequence[Mapping], param: str, path: str | Path, metric: str = "nDCG@10") -> Path:
     """Tuning-half score against one parameter (other parameters at their best), from a saved grid."""
     best = max(rows, key=lambda r: r["mean"][metric])

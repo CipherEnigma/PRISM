@@ -75,7 +75,7 @@ def _components(pq, index: Index, cfg, use_champions: bool | None = None):
         return {}, scores, np.zeros(index.n_docs), 0.0, {}, cand
 
     zone_scores = {zone: cosine_scores(index, zone, pq.terms, cand) for zone in cfg.zone_weights}
-    weights = adaptive_weights(index, pq.terms, cfg.zone_weights) if cfg.adaptive_zones else dict(cfg.zone_weights)
+    weights = adaptive_weights(index, pq.terms, cfg.zone_weights, cfg.alpha) if cfg.adaptive_zones else dict(cfg.zone_weights)
     beta = beta_of_q(specificity(index, pq.terms), cfg.beta, cfg.s_lo, cfg.s_hi) if cfg.gate else cfg.beta
     mode = cfg.authority_mode
     if mode == "none":

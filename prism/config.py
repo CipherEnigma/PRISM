@@ -31,6 +31,7 @@ class VariantConfig:
     s_lo: float = 0.2                   # specificity where gated authority starts decreasing
     s_hi: float = 0.8                   # specificity where gated authority reaches zero
     adaptive_zones: bool = False        # N3: per-query zone weights
+    alpha: float = 0.5                  # N3 blend: 0 keeps the global zone weights, 1 uses only the query's zone idf mass
     champions: bool = False             # tiered candidate generation
     phrase_boost: float = 0.0           # explicit quoted phrases only; 0 = off
 

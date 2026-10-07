@@ -64,11 +64,32 @@ def build_report(results_dir: str | Path, split: dict, all_qids: list[str], base
             plots.plot_topic_diffs(data, "V2", baseline, sets["all 50"], figs / "diff_V2_V0.png")
             md += [f"![V2 minus {baseline} per topic](figs/diff_V2_V0.png)", ""]
 
+    default_dir = results_dir.parent
+    if results_dir.name == "tuned" and list(default_dir.glob("per_topic_*.csv")):
+        base = _load_variants(default_dir)
+        md += ["## Default against tuned parameters", "",
+               "Tuned on the tuning half only; the reporting-half column is the unbiased one.", "",
+               "| Variant | default: report half | tuned: report half | default: all 50 | tuned: all 50 |", "| --- | --- | --- | --- | --- |"]
+        for v in plots._ordered(set(base) & set(data)):
+            md.append(f"| {v} | {plots.mean_over(base[v], sets['report half'], 'nDCG@10'):.3f} | "
+                      f"{plots.mean_over(data[v], sets['report half'], 'nDCG@10'):.3f} | "
+                      f"{plots.mean_over(base[v], sets['all 50'], 'nDCG@10'):.3f} | "
+                      f"{plots.mean_over(data[v], sets['all 50'], 'nDCG@10'):.3f} |")
+        md.append("")
+
     latency = _load_latency(results_dir)
     if latency:
         md += ["## Latency", "", plots.latency_table(latency), ""]
 
     spec = _json_or_none(results_dir / "specificity.json")
+    if spec:
+        from prism.config import VARIANTS
+        plots.plot_specificity_hist(spec, figs / "specificity_hist.png", VARIANTS["V6"].s_lo, VARIANTS["V6"].s_hi)
+        v = sorted(spec.values())
+        md += ["## Query specificity across the 50 topics", "",
+               f"Min {v[0]:.3f}, median {v[len(v) // 2]:.3f}, max {v[-1]:.3f}. The gate lowers beta between s_lo and s_hi "
+               f"(the orange lines); if the topics sit in a narrow band the gate has little to react to.", "",
+               "![](figs/specificity_hist.png)", ""]
     if spec and "V2" in data and "V1" in data:
         gains = {q: data["V2"][q]["nDCG@10"] - data["V1"][q]["nDCG@10"] for q in data["V2"] if q in data["V1"]}
         plots.plot_specificity_scatter(spec, gains, figs / "specificity_vs_gain.png")
