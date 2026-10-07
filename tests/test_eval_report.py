@@ -46,6 +46,7 @@ def test_figures_are_written(tmp_path):
     assert plots.plot_specificity_scatter(spec, gains, tmp_path / "scatter.png").exists()
     rows = [{"params": {"beta_max": b, "s_hi": s}, "mean": {"nDCG@10": 0.4 + b - s / 10}}
             for b in (0.0, 0.1, 0.2) for s in (0.6, 0.8)]
+    assert plots.plot_specificity_hist(spec, tmp_path / "hist.png", 0.2, 0.8).exists()
     assert plots.plot_sensitivity(rows, "beta_max", tmp_path / "sens.png").exists()
     assert plots.plot_heatmap(rows, "beta_max", "s_hi", tmp_path / "heat.png").exists()
     pts = [{"r": 200, "ndcg": 0.4, "median_ms": 5}, {"r": 1000, "ndcg": 0.45, "median_ms": 20}]
@@ -63,6 +64,7 @@ def test_build_report_end_to_end(tmp_path):
     assert "## Main table" in text and "against V0, report half" in text and "## Latency" in text
     assert (tmp_path / "figs" / "ndcg_bars_report.png").exists()
     assert (tmp_path / "figs" / "specificity_vs_gain.png").exists()
+    assert (tmp_path / "figs" / "specificity_hist.png").exists() and "Query specificity across" in text
 
 
 def test_build_report_needs_results(tmp_path):

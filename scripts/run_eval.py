@@ -4,6 +4,8 @@
     python scripts/run_eval.py --all                 every variant in config.VARIANTS
     python scripts/run_eval.py --report              tables + figures from the saved per-topic CSVs
     python scripts/run_eval.py --all --report        the whole results table, one command
+    python scripts/run_eval.py --tuned --all --report   same, with the parameters tuned on the tuning half
+                                                      (results/tuned.json), written under runs/tuned and results/tuned
 """
 from __future__ import annotations
 
@@ -17,6 +19,8 @@ from eval.data import SPLIT_PATH, load_qrels, load_queries, load_split, select_q
 from eval.metrics import mean_metrics, relevance_stats                                           # noqa: E402
 from eval.report import build_report                                                            # noqa: E402
 from eval.runner import read_per_topic_csv, run_and_save                                         # noqa: E402
+from eval.tune import make_champion_fn                                                           # noqa: E402
+from eval.tuned import choose_champion_size, tuned_variants                                      # noqa: E402
 from prism.config import RESULTS_DIR, RUNS_DIR, VARIANTS                                         # noqa: E402
 
 
@@ -36,6 +40,7 @@ def main() -> None:
     ap.add_argument("--variant", action="append", help="variant key (repeatable), e.g. V0")
     ap.add_argument("--all", action="store_true", help="run every variant in config.VARIANTS")
     ap.add_argument("--report", action="store_true", help="build tables and figures from saved results")
+    ap.add_argument("--tuned", action="store_true", help="use the parameters in results/tuned.json (in memory; config.py is untouched)")
     ap.add_argument("--k", type=int, default=100, help="ranking depth (default 100, needed for Recall@100)")
     ap.add_argument("--data-dir", type=Path, default=None, help="folder with queries.jsonl and qrels/test.tsv")
     ap.add_argument("--runs-dir", type=Path, default=RUNS_DIR)
@@ -48,6 +53,19 @@ def main() -> None:
     unknown = [v for v in variants if v not in VARIANTS]
     if unknown:
         ap.error(f"unknown variant(s) {unknown}; choose from {sorted(VARIANTS)}")
+
+    tuned_json = args.results_dir / "tuned.json"
+    champion_r = None
+    if args.tuned:
+        if not tuned_json.exists():
+            ap.error(f"--tuned needs {tuned_json}; run scripts/run_tune.py first")
+        import json
+        VARIANTS.update(tuned_variants(VARIANTS, json.loads(tuned_json.read_text(encoding="utf-8"))))
+        sweep = args.results_dir / "champion_sweep.json"
+        if sweep.exists():
+            champion_r = choose_champion_size(json.loads(sweep.read_text(encoding="utf-8")))
+        args.runs_dir, args.results_dir = args.runs_dir / "tuned", args.results_dir / "tuned"
+        print(f"tuned parameters applied from {tuned_json}" + (f"; V3 champion size r={champion_r}" if champion_r else ""))
 
     queries = load_queries(args.data_dir / "queries.jsonl" if args.data_dir else None)
     qrels = load_qrels(args.data_dir / "qrels" / "test.tsv" if args.data_dir else None)
@@ -62,7 +80,16 @@ def main() -> None:
           f"Recall@100 ceiling (mean) {stats['mean_recall_ceiling']:.3f}")
 
     for variant in variants:
-        summary = run_and_save(variant, queries, qrels, k=args.k, runs_dir=args.runs_dir, results_dir=args.results_dir)
+        index = None
+        if champion_r and variant == "V3":
+            from prism.search import _get_index
+            index = _get_index()
+            index.champion = make_champion_fn(index, champion_r)
+        try:
+            summary = run_and_save(variant, queries, qrels, k=args.k, runs_dir=args.runs_dir, results_dir=args.results_dir)
+        finally:
+            if index is not None:
+                index.__dict__.pop("champion", None)
         per_topic = read_per_topic_csv(args.results_dir / f"per_topic_{variant}.csv")
         _print_summary(variant, summary, per_topic, split, all_qids)
 
