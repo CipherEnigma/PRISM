@@ -56,6 +56,10 @@ def main() -> None:
                           "v5": lambda: tune_authority(ctx, "V5", "cohort"), "v6": lambda: tune_gate(ctx),
                           "v7": lambda: tune_adaptive_zones(ctx)}[stage]()
             print(f"{stage.upper()}: best {best.params}  nDCG@10 {best.mean['nDCG@10']:.4f}  ({len(rows)} grid points)")
+            for name, value in best.params.items():
+                values = sorted({r.params[name] for r in rows})
+                if len(values) > 1 and value in (values[0], values[-1]):
+                    print(f"  note: {name}={value} is at the edge of its grid {values}; the optimum may lie outside it")
     print(f"\nchosen parameters: {args.results_dir / 'tuned.json'}")
 
 
